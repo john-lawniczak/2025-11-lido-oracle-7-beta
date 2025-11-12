@@ -1,0 +1,285 @@
+{
+  "meta": {
+    "schema_version": "2.0.0"
+  },
+  "false_positives": [
+    {
+      "id": "GEN-FP-001",
+      "title": "SSRF via unvalidated upload URL from trusted Storacha bridge",
+      "finding_id": "10e17d6d-6ec4-4970-950b-71fc63aadac3",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Trusted upstream only",
+      "false_positive_reasoning": "The PUT target URL is obtained exclusively from the Storacha bridge at a hardcoded HTTPS endpoint and is not influenced by user input. Exploitation would require compromise of the Storacha bridge service or TLS/infra, which is outside the application threat model. The code sets explicit timeouts, does not read response bodies for exfiltration, and operates per provider spec.",
+      "gap_explanation": "Scanner flagged unvalidated dynamic URL use without considering the trusted, hardcoded upstream and lack of attacker-controlled input paths.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/providers/ipfs/storacha.py",
+      "code_snippet": "        store_out = resp_json[0]['p']['out']\n        if 'ok' in store_out:\n            store_result = store_out['ok']\n        else:\n            error_msg = f\"Storacha store/add error: {json.dumps(store_out)}\"\n            logger.error(error_msg)\n            raise UploadError(error_msg)\n\n        if store_result['status'] == 'upload':\n            upload_url = store_result['url']\n            upload_headers = store_result['headers']\n\n            try:\n                upload_response = requests.put(upload_url, headers=upload_headers, data=car_file.car_bytes, timeout=self.timeout)\n                upload_response.raise_for_status()",
+      "line_numbers": "lines 85–100",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Other",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "staking_liquid_staking",
+        "dev_infra_crypto"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "ssrf",
+        "ipfs",
+        "storacha",
+        "s3-presigned"
+      ],
+      "patterns": [
+        "trusted-peer-scope"
+      ],
+      "taint_source": "network_peer"
+    },
+    {
+      "id": "GEN-FP-002",
+      "title": "SSRF via User-Controlled OpsGenie API URL",
+      "finding_id": "652bdb9d-a277-40a0-8514-e5480626dd48",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Operator-controlled environment variable",
+      "false_positive_reasoning": "The reported SSRF requires an attacker to control the process environment variable `OPSGENIE_API_URL`. In this project the value is read from `os.getenv` and is operator/runtime-controlled (set by deployment or CI). There is no code path that allows untrusted user input to influence this environment variable. Exploitation would require prior compromise of deployment/CI or operator-controlled configuration, which falls outside the application's threat model.",
+      "gap_explanation": "Scanner treated an operator-configured environment variable as attacker-controlled input; the project sources `OPSGENIE_API_URL` only from process environment and uses it in a test-runner hook to send alerts.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/utils/api/opsgenie.py",
+      "code_snippet": "        if not self.api_key or not self.api_url:\\n            self.logger.info({'msg': 'OpsGenie not configured, ignore.'})\\n            return\\n\\n        headers = {\\n            'Authorization': f'GenieKey {self.api_key}',\\n            'Content-Type': 'application/json',\\n        }\\n\\n        try:\\n            response = requests.post(\\n                f'{self.api_url}/v2/alerts',\\n                json=payload,\\n                headers=headers,\\n                timeout=10,\\n            )\\n            response.raise_for_status()",
+      "line_numbers": "lines 38–55",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "dev_infra_crypto"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "ssrf",
+        "opsgenie",
+        "env"
+      ],
+      "patterns": [
+        "trusted-config"
+      ],
+      "taint_source": "environment"
+    },
+    {
+      "id": "GEN-FP-003",
+      "title": "SSRF via Unvalidated Host Configuration",
+      "finding_id": "54d982f1-00ba-44ee-a914-42d133e28688",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Operator-controlled environment variable",
+      "false_positive_reasoning": "The `KUBO_HOST` value is sourced exclusively from the process environment and configured by the operator/runtime. There is no path for untrusted user input to influence this variable. Using it to construct Kubo URLs does not constitute an application-layer SSRF; exploitation would require prior compromise of deployment/CI configuration which is outside the app threat model.",
+      "gap_explanation": "Scanner treated an operator-provided environment variable (`KUBO_HOST`) as attacker-controlled input. The project retrieves it via `os.getenv` and uses it to reach an IPFS Kubo node.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/providers/ipfs/kubo.py",
+      "code_snippet": "url = f\"{self.host}:{self.gateway_port}/ipfs/{cid}\"\\nurl = f\"{self.host}:{self.rpc_port}/api/v0/add\"\\nurl = f\"{self.host}:{self.rpc_port}/api/v0/pin/add\"",
+      "line_numbers": "multiple locations",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "dev_infra_crypto",
+        "ipfs"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "ssrf",
+        "ipfs",
+        "kubo",
+        "env"
+      ],
+      "patterns": [
+        "trusted-config"
+      ],
+      "taint_source": "environment"
+    },
+    {
+      "id": "GEN-FP-004",
+      "title": "SSRF via Unvalidated Host Parameter",
+      "finding_id": "08b8900d-5955-4fb1-a2f8-766ddc75b84a",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Operator-controlled environment variable",
+      "false_positive_reasoning": "`LIDO_IPFS_HOST` is provided by operators via process environment and not influenced by end users. The `urljoin(self.host, ...)` usage for fetch requests does not introduce an attacker-controlled URL. Exploitation would require control over deployment configuration, which is outside the application threat model.",
+      "gap_explanation": "Scanner assumed `LIDO_IPFS_HOST` could be attacker-controlled. In this project it is solely configured by the operator and used to reach a dedicated Lido IPFS endpoint.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/providers/ipfs/lido_ipfs.py",
+      "code_snippet": "url = urljoin(self.host, f\"/ipfs/{cid}\")\\nresp = requests.get(url, headers=self._get_headers(), timeout=self.timeout)",
+      "line_numbers": "multiple locations",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "dev_infra_crypto",
+        "ipfs"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "ssrf",
+        "ipfs",
+        "lido-ipfs",
+        "fetch",
+        "env"
+      ],
+      "patterns": [
+        "trusted-config"
+      ],
+      "taint_source": "environment"
+    },
+    {
+      "id": "GEN-FP-005",
+      "title": "SSRF via Unvalidated Host Parameter in Upload",
+      "finding_id": "a608e714-f1e8-4343-af57-70c9d8f07b4b",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Operator-controlled environment variable",
+      "false_positive_reasoning": "As with fetch, `LIDO_IPFS_HOST` is operator-controlled via environment configuration. Upload requests constructed with `urljoin(self.host, \"/add\")` are not attacker-controlled. Exploitation requires control over deployment settings, which is outside the intended threat model.",
+      "gap_explanation": "Scanner flagged unvalidated dynamic URL composition without considering the trusted configuration source for `LIDO_IPFS_HOST`.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/providers/ipfs/lido_ipfs.py",
+      "code_snippet": "url = urljoin(self.host, \"/add\")\\nresponse = requests.post(\\n    url,\\n    files={\"file\": content},\\n    params=params,\\n    headers=self._get_headers(),\\n    timeout=self.timeout\\n)",
+      "line_numbers": "multiple locations",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "dev_infra_crypto",
+        "ipfs"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "ssrf",
+        "ipfs",
+        "lido-ipfs",
+        "upload",
+        "env"
+      ],
+      "patterns": [
+        "trusted-config"
+      ],
+      "taint_source": "environment"
+    }
+    ,
+    {
+      "id": "GEN-FP-006",
+      "title": "Arbitrary Code Execution via pytest Configuration and Test Files",
+      "finding_id": "95e4a152-dbcc-4265-bbe6-ef19bed60f08",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Operator-controlled test files",
+      "false_positive_reasoning": "The ChecksModule invokes pytest to run tests from `src/modules/checks/suites` using an operator-provided pytest configuration. The pytest hooks (e.g., `conftest.py`) execute in the same process, so a malicious test or modified pytest.ini could execute arbitrary code. However, the ability to modify repository test files or the runtime pytest.ini is an operator/deployment-level capability; there is no untrusted external input path in the application that allows arbitrary actors to change those files. Exploitation requires prior compromise of repository/CI/deployment where tests live, which is outside the application's threat model.",
+      "gap_explanation": "Scanner treated test-suite files and pytest config as attacker-controlled inputs. In normal deployments these files are controlled by operators/maintainers; mitigating arbitrary modification is an infrastructure/ops concern (file permissions, CI protections), not an application-level SSRF/RCE vulnerability.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/modules/checks/checks_module.py",
+      "code_snippet": "    def execute_module(self):\\n        return pytest.main([\\n            'src/modules/checks/suites',\\n            '-c', 'src/modules/checks/pytest.ini',\\n        ])",
+      "line_numbers": "lines 18–22",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "dev_infra_crypto",
+        "oracle_networks"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "rce",
+        "pytest",
+        "test-runner"
+      ],
+      "patterns": [
+        "trusted-config"
+      ],
+      "taint_source": "file/snapshot"
+    }
+    ,
+    {
+      "id": "GEN-FP-007",
+      "title": "Path Traversal Vulnerability in File Reading Function",
+      "finding_id": "df185abe-3abb-4b19-8102-2a2007c19112",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Operator-controlled env var",
+      "false_positive_reasoning": "The `from_file_or_env` helper reads a file path from `${ENV_NAME}_FILE` and returns its contents. While the implementation does not restrict directory traversal, the file path is provided via an environment variable which is controlled by operators at deployment time. There is no application-level untrusted input that can arbitrarily set these environment values. Exploitation would require control over the process environment or deployment configuration (CI/host), which is out of scope for application-layer security analysis.",
+      "gap_explanation": "Scanner assumed environment-derived file paths are attacker-controlled. In practice these values are set by deployment/ops; preventing malicious file paths is an infrastructure responsibility (e.g., secret mounts, file permissions) rather than an application logic bug in this codebase.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/utils/env.py",
+      "code_snippet": "def from_file_or_env(env_name: str):\\n    \"\"\"Return value read from `${env_name}_FILE` or `${env_name}` value directly\"\"\"\\n\\n    filepath_env = f\"{env_name}_FILE\"\\n    if filepath := os.getenv(filepath_env):\\n        if not os.path.exists(filepath):\\n            raise ValueError(f'File {filepath} does not exist. Fix {filepath_env} variable or remove it.')\\n\\n        with open(filepath) as f:\\n            return f.read().rstrip()",
+      "line_numbers": "lines 4–15",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "dev_infra_crypto"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "path-traversal",
+        "secrets",
+        "env"
+      ],
+      "patterns": [
+        "trusted-config"
+      ],
+      "taint_source": "environment"
+    }
+  ]
+}
+

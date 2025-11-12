@@ -1,0 +1,55 @@
+Based on the Accounting Oracle v7 (off-chain) scope and your include/exclude set, here’s how I’d prioritize which are most likely in scope, true positives, and worth immediate investigation—with quick justification and suggested PoC angles.
+
+Tier 1 — Highest priority (very likely in scope + impactful + exploitable)
+
+SSRF family (multiple surfaces)
+
+Files: src/utils/api/opsgenie.py, src/providers/ipfs/kubo.py, src/providers/ipfs/lido_ipfs.py, src/providers/http_provider.py, src/providers/ipfs/storacha.py
+
+Why: Oracle/daemon routinely makes outbound HTTP calls. Unvalidated hosts/URLs sourced from env/config or API responses can be steered to internal/metadata endpoints → secret exfiltration (e.g., tokens, env), lateral movement, or tampering with inputs the oracle consumes. This maps well to “Off-chain apps sensitive data extraction” and can cascade into on-chain impact if inputs/reports are influenced.
+
+PoC idea: Run under Docker with a mock internal endpoint (e.g., http://host.docker.internal:… or a simple Python HTTP server) and set OPSGENIE_API_URL / LIDO_IPFS_HOST / KUBO_HOST / an injected Storacha upload_url to your server; show request reaches it and captures payload/headers (tokens).
+
+Path traversal in secret loading
+
+Files: src/utils/env.py (used by) src/variables.py
+
+Why: *_FILE envs reading arbitrary paths lets an attacker with limited env control read arbitrary files from the host/container (private keys, service tokens). Extremely common, high-impact, and squarely in scope for the off-chain component.
+
+PoC idea: Set PINATA_JWT_FILE=../../../../etc/passwd (or a mounted secret path) and show the value is ingested and then used/logged/forwarded.
+
+JWT signature not verified (Pinata / utils.jwt)
+
+Files: src/utils/jwt.py, src/providers/ipfs/pinata.py
+
+Why: Using only structural validation (“header.payload.signature” parse) but no cryptographic verification enables forged tokens to be accepted at the app layer. Even if Pinata backend verifies later, the app may make decisions (caching, routing, logging) based on untrusted claims; at minimum it’s a dangerous false sense of security and often leads to auth bypass elsewhere.
+
+PoC idea: Craft a JWT with bogus claims and “none”/fake signature; show it passes validate_jwt and is used to set Authorization: Bearer <token> in requests.
+
+Tier 2 — High priority (likely in scope; medium setup; still impactful)
+
+Arbitrary code execution via pytest runtime checks
+
+Files: src/modules/checks/checks_module.py, src/modules/checks/suites/conftest.py, src/modules/checks/pytest.ini
+
+Why: The oracle invokes pytest at runtime (not just CI). If an attacker can change checks content/config (e.g., via config repo, IPFS, or env-controlled path), pytest hooks/plugins can run arbitrary code with oracle privileges. Since your include keeps checks/**, this is in play.
+
+PoC idea: Demonstrate a malicious conftest.py or plugin loaded by the same runner that exfiltrates an env var or writes to disk. Emphasize realistic config/injection path.
+
+Sensitive private key in PRIVATE_ENV_VARS
+
+Files: src/variables.py
+
+Why: Keeping plaintext MEMBER_PRIV_KEY in a dict commonly ends up logged or serialized, especially during debug/metrics dumps. Not as flashy as SSRF, but often yields key material exposure.
+
+PoC idea: Identify a code path that logs or serializes env dicts/vars (or add a realistic misconfig) and show the key value appears in logs/metrics.
+
+Tier 3 — Worth checking, but may hinge on usage/context
+
+Hardcoded all-zero GENESIS_VALIDATORS_ROOT
+
+File: src/constants.py
+
+Why: If it’s actually used for deposit domain separation or verification in production paths, this becomes a serious cross-network replay/invalid deposit risk. If it’s dead/test-only, severity drops. Your include suggests this constant is present; you’ll need to trace whether accounting paths (or any deposit signing code) reference it during live operation.
+
+PoC idea: Trace calls for deposit domain/compute_deposit_domain; show that an all-zero root is used in any production-significant flow. Otherwise mark as “risk if promoted to prod; safe if test-gated.”

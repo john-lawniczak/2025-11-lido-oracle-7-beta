@@ -1,0 +1,42 @@
+include:
+  - src/__init__.py
+  - src/constants.py
+  - src/main.py
+  - src/types.py
+  - src/variables.py
+  - src/metrics/**
+  - src/modules/accounting/**
+  - src/modules/checks/**
+  - src/modules/submodules/**
+  - src/providers/**
+  - src/services/exit_order_iterator.py
+  - src/services/withdrawal.py
+  - src/services/staking_vaults.py
+  - src/services/validator_state.py
+  - src/utils/**
+  - src/web3py/**
+  - src/utils/car/schemes/unixfs.proto
+  - pyproject.toml
+  - poetry.lock
+  - Dockerfile
+  - Makefile
+
+exclude:
+  - "src/modules/ejector/**"
+  - "src/modules/csm/**"
+  - "src/metrics/prometheus/ejector.py"
+  - "src/metrics/prometheus/csm.py"
+  - "**/tests/**"
+  - "**/test/**"
+  - "stubs/**"
+  - "docs/**"
+  - "assets/**"
+  - "kubo/**"
+  - "**/*.md"
+  - "**/*.pyi"
+  - "**/node_modules/**"
+  - "**/*.test.py"
+
+scan_mode: DEFAULT
+project_type: OTHER
+
