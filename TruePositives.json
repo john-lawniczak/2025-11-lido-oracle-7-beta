@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "schema_version": "2.0.0"
+  },
+  "true_positives": [
+    {
+      "id": "MONAD-TP-001",
+      "title": "Missing TLS verification and HTTPS enforcement in OpsGenie API calls",
+      "finding_id": "d2635685-53ab-4a51-a715-bb2eda9b5059",
+      "severity_claimed_by_scan": "MEDIUM",
+      "severity_final": "MEDIUM",
+      "bug_category": "Security",
+      "scope_status": "OUT_OF_SCOPE",
+      "date_added": "2025-11-12",
+      "exploit_summary": "Requests to OpsGenie API may be exposed to MITM if TLS verification is disabled or URL uses HTTP; credentials and payloads could be intercepted or tampered.",
+      "impact_description": "Potential credential leakage and manipulation of Alert payloads; reduces security posture of alerting integration.",
+      "code_path": "src/utils/api/opsgenie.py",
+      "code_snippet": "response = requests.post(\\n    f'{self.api_url}/v2/alerts',\\n    json=payload,\\n    headers=headers,\\n    timeout=10,\\n    )",
+      "line_numbers": "lines 48-53",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle",
+      "project_profile_tags": ["dev_infra_crypto", "identity_auth"],
+      "competition_result": "TBD",
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5"
+    }
+  ]
+}
+

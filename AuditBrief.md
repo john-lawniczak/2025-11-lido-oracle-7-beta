@@ -134,3 +134,42 @@
 - Eligibility excludes contributors/auditors and OFAC-sanctioned persons.
 
 **Landing page:** https://v3.lido.fi/
+**Bounty page:** https://immunefi.com/audit-competition/lido-v3-bug-bounty-competition/information/#audits
+
+### Appendix — Competition-Specific Scope Guardrails (for submissions)
+
+**Pick the correct asset on the Immunefi form**
+- If your issue is **Solidity/on-chain**: select the **exact Hoodi testnet contract address** from the list (e.g., VaultHub, StakingRouter, StakingVault, WithdrawalQueueERC721, Burner, OperatorGrid, HashConsensus, etc.).
+- If your issue is **off-chain**: **only** the **[off-chain] Lido Accounting Oracle v7 (tag: `7.0.0-beta.3`)** is in scope. Your bug must **materially impact oracle security/integrity** (e.g., report forgery, wrong finalization, auth bypass, key misuse, SSRF/RCE that affects on-chain oracle outcomes).
+
+**Not in competition scope (but may belong to regular BBP)**
+- General off-chain integrations/tools (e.g., alerting clients like OpsGenie, log formatters, generic TLS flags) **unless** they directly endanger oracle report correctness or secret material tied to the Accounting Oracle.
+- “Best practice” nits without concrete exploit impact on in-scope assets.
+
+**Asset accuracy & code freeze**
+- Code/addresses listed by the competition are **assured** for scope accuracy and are **frozen** during the program. If you find a bug in an asset incorrectly listed as in-scope, it is still **valid**.
+
+**Impact modeling & rewards (restate for LLM)**
+- Use **Phase-1** limits (3% stVault cap, 50k per NO, permissioned N/Os) for **USD impact**.
+- Apply **initial attack window** caps: **1h** if pausable; **5d** (Critical) / **9d** (High/Medium) if upgrade-only.
+- Severity minimums (Immunefi V2.3 thresholds): **Medium ≥ $50k**, **High ≥ $250k**, **Critical ≥ $2M user funds or ≥ $1M non-user funds** (with 10% rule, $50k min for Critical).
+
+**PoC environment**
+- No live mainnet/testnet attacks. Use a **local fork** (Hoodi chainId **560048**) or Hardhat/Foundry mainnet-fork for reproducible PoCs.
+- Tie PoC commits to tags: `lidofinance/core@v3.0.0-rc.4` and `lidofinance/lido-oracle@7.0.0-beta.3`.
+
+**Report routing checklist**
+- ✅ Quote **contract name + function(s) + exact Hoodi address** (or **oracle repo file path + tag**).
+- ✅ Show **on-chain impact** (fund loss/freeze, role escalation, solvency break) or **oracle integrity break**.
+- ✅ Provide **runnable PoC** (Foundry/Hardhat) with clear steps.
+- ❌ Don’t submit **insights/best-practice only** items.
+- ❌ Don’t rely on **privileged key compromise**, third-party website failures, or **off-scope** integrations.
+
+**Examples to keep straight**
+- **In-scope off-chain**: Accounting Oracle v7 bug enabling **incorrect finalized report** → wrong on-chain accounting → fund risk.
+- **Out-of-scope for competition**: OpsGenie HTTP/TLS config in alerting helper (no effect on oracle keys/reports). Consider the **regular BBP** instead if impact is meaningful.
+
+**Sanity targets for LLM/autoscan configs**
+- For Solidity: limit to `core@v3.0.0-rc.4` contracts that map to Hoodi addresses in the form.
+- For off-chain: limit to `lido-oracle@7.0.0-beta.3` and subpaths that **feed Accounting Oracle security** (e.g., consensus/HashConsensus, report builders, auth, IPC/RPC used by Accounting Oracle). Exclude ancillary utilities not affecting oracle integrity.
+

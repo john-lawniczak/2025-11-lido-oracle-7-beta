@@ -1,0 +1,59 @@
+include:
+  # Allow only these in-scope contract files anywhere under contracts/**
+  - "contracts/**/EIP712StETH.sol"
+  - "contracts/**/OracleDaemonConfig.sol"
+  - "contracts/**/HashConsensus.sol"                  # used by ValidatorsExitBusOracle & AccountingOracle
+  - "contracts/**/Lido.sol"
+  - "contracts/**/PinnedBeaconProxy.sol"
+  - "contracts/**/WithdrawalVault.sol"
+  - "contracts/**/VaultHub.sol"
+  - "contracts/**/LazyOracle.sol"
+  - "contracts/**/OperatorGrid.sol"
+  - "contracts/**/OracleReportSanityChecker.sol"
+  - "contracts/**/TriggerableWithdrawalsGateway.sol"
+  - "contracts/**/wstETH.sol"
+  - "contracts/**/Accounting.sol"
+  - "contracts/**/StakingRouter.sol"
+  - "contracts/**/PredepositGuarantee.sol"
+  - "contracts/**/ValidatorExitDelayVerifier.sol"
+  - "contracts/**/Burner.sol"
+  - "contracts/**/ValidatorConsolidationRequests.sol"
+  - "contracts/**/AccountingOracle.sol"
+  - "contracts/**/LidoLocator.sol"
+  - "contracts/**/WithdrawalQueueERC721.sol"
+
+  # Support code that these contracts import (interfaces & libraries in the same repo)
+  - "contracts/**/interfaces/**/*.sol"
+  - "contracts/**/lib/**/*.sol"
+  - "contracts/**/libraries/**/*.sol"
+  - "contracts/**/utils/**/*.sol"
+  - "contracts/**/helpers/**/*.sol"
+
+exclude:
+  # Keep the scan strictly on prod contract code
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/spec/**"
+  - "**/mocks/**"
+  - "**/mock/**"
+  - "**/script/**"
+  - "**/scripts/**"
+  - "**/deploy/**"
+  - "**/dev/**"
+  - "**/examples/**"
+  - "**/deprecated/**"
+  - "**/docs/**"
+  - "**/*.md"
+  - "**/*.t.sol"
+  - "**/*.json"
+  - "**/*.abi"
+  - "**/*.bin"
+  - "**/node_modules/**"
+  - "kubo/**"
+  - "stubs/**"
+  - "assets/**"
+
+scan_mode: DEFAULT
+project_type: SMART_CONTRACT
+language:
+  - solidity

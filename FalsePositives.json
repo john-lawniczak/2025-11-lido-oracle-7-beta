@@ -44,6 +44,87 @@
       "taint_source": "network_peer"
     },
     {
+      "id": "GEN-FP-016",
+      "title": "Log Forgery via Metadata Override in JsonFormatter",
+      "finding_id": "e1f2d3c4-5b6a-7890-1a2b-3c4d5e6f7081",
+      "severity_claimed_by_scan": "LOW",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Merging untrusted input into log metadata (theoretical collision)",
+      "false_positive_reasoning": "In production the logger only merges internally constructed dictionaries; there is no path for attacker-controlled input to supply the top-level metadata fields. The observed collision in the PoC is not exploitable under the current threat model.",
+      "gap_explanation": "Scanner flagged potential collisions due to merge order; actual inputs are controlled by the app, not by external users.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/metrics/logging.py",
+      "code_snippet": "to_json_msg = json.dumps({\\n            'timestamp': int(record.created),\\n            'name': record.name,\\n            'levelname': record.levelname,\\n            'funcName': record.funcName,\\n            'lineno': record.lineno,\\n            'module': record.module,\\n            'pathname': record.pathname,\\n            **message,\\n        })",
+      "line_numbers": "lines 30-39",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "dev_infra_crypto"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "security",
+        "logging",
+        "json",
+        "metadata",
+        "fp"
+      ],
+      "patterns": [
+        "log-format",
+        "metadata-override"
+      ],
+      "taint_source": "internal"
+    },
+    {
+      "id": "GEN-FP-017",
+      "title": "Transaction Replay Risk Due to Missing Explicit chainId in tx_params",
+      "finding_id": "undefined-0000-0000-0000",
+      "severity_claimed_by_scan": "MEDIUM",
+      "bug_category": "Security",
+      "gap_category": "Code Quality",
+      "technical_gap": "Implicit chainId binding via Web3/eth-account defaults; no explicit chainId in TxParams",
+      "false_positive_reasoning": "The transaction parameters omit chainId, but the signing path binds the chain through the Web3 provider and the eventual signing process; the code uses EIP-1559 fields and relies on provider chain_id. The scanner flagged a potential replay risk due to missing explicit chainId, but there is an implicit binding and cross-provider chain-id checks at startup; no exploitable path exists under the current threat model.",
+      "gap_explanation": "Scanner flagged missing explicit chainId; actual signer binds chainId via Web3 provider. Additional hardening is optional.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/web3py/extensions/tx_utils.py",
+      "code_snippet": "params: TxParams = {\\n    \"from\": account.address,\\n    \"maxFeePerGas\": Wei(\\n        latest_block[\"baseFeePerGas\"] * 2 + max_priority_fee\\n    ),\\n    \"maxPriorityFeePerGas\": max_priority_fee,\\n    \"nonce\": self.w3.eth.get_transaction_count(account.address),\\n}",
+      "line_numbers": "lines 78–85",
+      "commit_hash": "",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "staking_liquid_staking",
+        "dev_infra_crypto"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "web3",
+        "tx_utils",
+        "chainid",
+        "security"
+      ],
+      "patterns": [
+        "chainid-implicit"
+      ],
+    "taint_source": "internal"
+    },
+    {
       "id": "GEN-FP-002",
       "title": "SSRF via User-Controlled OpsGenie API URL",
       "finding_id": "652bdb9d-a277-40a0-8514-e5480626dd48",
@@ -279,6 +360,318 @@
         "trusted-config"
       ],
       "taint_source": "environment"
+    }
+    ,
+    {
+      "id": "GEN-FP-008",
+      "title": "JWT Token Signature Not Verified (Pinata usage)",
+      "finding_id": "43c338f9-fb64-4738-89da-ae27534554ad",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Structural-only JWT check",
+      "false_positive_reasoning": "The Pinata provider calls `validate_jwt(jwt_token)` on construction which explicitly validates only the JWT structure. This function is a convenience to ensure formatting before setting the Authorization header; actual authentication and signature verification are performed by the remote Pinata service. The structural check prevents malformed tokens from being set but does not attempt client-side cryptographic verification, which is an operational design decision rather than a standalone authentication bypass in this client code.",
+      "gap_explanation": "Scanner interpreted the structural check as missing cryptographic verification in the client. In practice the Pinata API enforces signature verification server-side; the client-side function only guards against malformed input and is not relied upon for security decisions within the application.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/providers/ipfs/pinata.py",
+      "code_snippet": "    def __init__(self, jwt_token: str, *, timeout: int, dedicated_gateway_url: str, dedicated_gateway_token: str) -> None:\\n        super().__init__()\\n        validate_jwt(jwt_token)\\n        self.timeout = timeout\\n\\n        self.session = requests.Session()\\n        self.session.headers[\"Authorization\"] = f\"Bearer {jwt_token}\"",
+      "line_numbers": "lines 24–31",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "dev_infra_crypto",
+        "oracle_networks"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "jwt",
+        "pinata",
+        "auth"
+      ],
+      "patterns": [
+        "trusted-config"
+      ],
+      "taint_source": "environment"
+    }
+    ,
+    {
+      "id": "GEN-FP-009",
+      "title": "JWT Signature Not Verified - base64 decode usage",
+      "finding_id": "0e5b18ac-636a-44f6-9545-b6b0e61fa158",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Base64 structural validation",
+      "false_positive_reasoning": "The `decode_base64url` helper correctly implements base64url decoding and is used by `validate_jwt` to parse JWT header and payload. It raises on invalid input and does not attempt signature verification. The helper's role is decoding; cryptographic verification is out of scope and is expected to be performed by the authentication authority (Pinata) or a separate verification function.",
+      "gap_explanation": "Scanner flagged base64 decoding as enabling JWT forgery. Decoding is a necessary parsing step; absence of signature checking in this helper is intentional and not a standalone vulnerability in the decoding routine.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/utils/base64.py",
+      "code_snippet": "def decode_base64url(data: str) -> str:\\n    # Replace base64url specific characters back to standard base64.\\n    data = data.replace(\"-\", \"+\").replace(\"_\", \"/\")\\n    # Calculate and add necessary padding (expected by b64decode).\\n    padding = \"=\" * ((4 - len(data) % 4) % 4)\\n    data += padding\\n    try:\\n        return base64.b64decode(data).decode(\"utf-8\")",
+      "line_numbers": "lines 5–17",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "dev_infra_crypto"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "base64",
+        "jwt",
+        "parsing"
+      ],
+      "patterns": [
+        "language-model-mismatch"
+      ],
+      "taint_source": "internal"
+    }
+    ,
+    {
+      "id": "GEN-FP-010",
+      "title": "JWT Signature Not Verified - validate_jwt structural check",
+      "finding_id": "e7b1d3b3-d309-4cf1-a02f-5e9315c964c7",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Structure-only validation",
+      "false_positive_reasoning": "The `validate_jwt` function explicitly documents that it validates JWT structure without verifying the signature. It enforces token formatting (three parts, base64url-decodable JSON header and payload) and raises on malformed tokens. The application does not rely on this function for cryptographic trust decisions; it is a parsing guard. Full signature verification is the responsibility of the authentication provider or should be performed by a dedicated verification function.",
+      "gap_explanation": "Scanner treated structural validation as a missing cryptographic verification step. The function's docstring and implementation make its scope explicit; flagging it as a standalone cryptographic verification bug misses the design intent and operational context.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/utils/jwt.py",
+      "code_snippet": "def validate_jwt(token: Any):\\n    \"\"\"Validates a JWT token's structure without verifying the signature\"\"\"\\n\\n    if not isinstance(token, str):\\n        raise ValueError(\"Invalid JWT: Token must be a string\")\\n\\n    parts = token.split(\".\")\\n    if len(parts) != 3:\\n        raise ValueError(\"Invalid JWT format: Token must have 3 parts separated by dots\")",
+      "line_numbers": "lines 7–16",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "dev_infra_crypto"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "jwt",
+        "validation",
+        "auth"
+      ],
+      "patterns": [
+        "language-model-mismatch"
+      ],
+      "taint_source": "internal"
+    }
+    ,
+    {
+      "id": "GEN-FP-011",
+      "title": "Sensitive Private Key Exposed in PRIVATE_ENV_VARS Dictionary",
+      "finding_id": "ceadccf0-c7c5-4736-bd54-93a4ac77fbee",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Secrets stored in dict",
+      "false_positive_reasoning": "The PRIVATE_ENV_VARS mapping does include `MEMBER_PRIV_KEY` as one of many private configuration values. This dictionary is populated from environment variables during process startup and is intended for internal bookkeeping of which variables are considered private (used to prevent accidental public logging). The codebase does not serialize or log the contents of PRIVATE_ENV_VARS in normal operation; `PUBLIC_ENV_VARS` is used for safe public logging. The private key value remains in memory as the MEMBER_PRIV_KEY variable (necessary for cryptographic operations) but is not written to logs or external outputs by default.",
+      "gap_explanation": "Scanner flagged presence of secrets in an in-memory dict without tracing actual exposures. The project treats these variables as private (keeps them in PRIVATE_ENV_VARS) and uses `PUBLIC_ENV_VARS` for public logs. Preventing accidental leak is an ops/configuration concern (secret mounts, least-privilege) rather than an application-level bug in this initial mapping.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/variables.py",
+      "code_snippet": "PRIVATE_ENV_VARS = {\\n    'EXECUTION_CLIENT_URI': EXECUTION_CLIENT_URI,\\n    'CONSENSUS_CLIENT_URI': CONSENSUS_CLIENT_URI,\\n    'KEYS_API_URI': KEYS_API_URI,\\n    'PINATA_JWT': PINATA_JWT,\\n    'STORACHA_AUTH_SECRET': STORACHA_AUTH_SECRET,\\n    'STORACHA_AUTHORIZATION': STORACHA_AUTHORIZATION,\\n    'STORACHA_SPACE_DID': STORACHA_SPACE_DID,\\n    'LIDO_IPFS_HOST': LIDO_IPFS_HOST,\\n    'LIDO_IPFS_TOKEN': LIDO_IPFS_TOKEN,\\n    'PINATA_DEDICATED_GATEWAY_TOKEN': PINATA_DEDICATED_GATEWAY_TOKEN,\\n    'MEMBER_PRIV_KEY': MEMBER_PRIV_KEY,\\n    'OPSGENIE_API_KEY': OPSGENIE_API_KEY,\\n    'OPSGENIE_API_URL': OPSGENIE_API_URL,\\n}",
+      "line_numbers": "lines 170–184",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "dev_infra_crypto",
+        "oracle_networks"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "secrets",
+        "env",
+        "privkey"
+      ],
+      "patterns": [
+        "trusted-config"
+      ],
+      "taint_source": "environment"
+    }
+    ,
+    {
+      "id": "GEN-FP-012",
+      "title": "Path Traversal Vulnerability in from_file_or_env",
+      "finding_id": "eba2c87e-163e-4b3d-b6ea-3a50e3c4bbfc",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Env-file path unchecked",
+      "false_positive_reasoning": "The helper `from_file_or_env` reads `${ENV_NAME}_FILE` if set and returns file contents. While it does not canonicalize or restrict paths, the environment variables that control these file paths are set by operators at deployment time. There is no code path within the application that allows untrusted remote actors to set these environment variables; therefore exploitation requires control over the deployment environment (CI/host), which falls outside the application threat model.",
+      "gap_explanation": "Scanner flagged potential path traversal without acknowledging that `${ENV_NAME}_FILE` is operator-controlled configuration. Preventing malicious file mounts or ensuring secret volumes are used is an infrastructure/ops responsibility, not an application-layer vulnerability in this parsing helper.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/utils/env.py",
+      "code_snippet": "def from_file_or_env(env_name: str):\\n    filepath_env = f\"{env_name}_FILE\"\\n    if filepath := os.getenv(filepath_env):\\n        if not os.path.exists(filepath):\\n            raise ValueError(f'File {filepath} does not exist. Fix {filepath_env} variable or remove it.')\\n\\n        with open(filepath) as f:\\n            return f.read().rstrip()",
+      "line_numbers": "lines 4–15",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "dev_infra_crypto"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "path-traversal",
+        "env",
+        "secrets"
+      ],
+      "patterns": [
+        "trusted-config"
+      ],
+      "taint_source": "environment"
+    }
+    ,
+    {
+      "id": "GEN-FP-013",
+      "title": "Hardcoded All-Zero GENESIS_VALIDATORS_ROOT (testing placeholder)",
+      "finding_id": "e27c5774-1cf8-4019-8a54-9c06bad9e0dd",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Testnet placeholder constant",
+      "false_positive_reasoning": "The constant `GENESIS_VALIDATORS_ROOT = bytes([0] * 32)` is present in `src/constants.py` with a comment indicating it's used 'for deposits'. This repository contains many test and local-run utilities; the placeholder all-zero root is commonly used for non-production/test setups. There is no evidence in the code that this value is used for production signing or that it is applied to live network deposits without operator configuration.",
+      "gap_explanation": "Scanner flagged a cryptographic constant but did not distinguish test/development defaults from production configuration. Operators must supply correct network parameters for production; the codebase uses this placeholder for testing convenience and should be overridden in real deployments.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/constants.py",
+      "code_snippet": "GENESIS_VALIDATORS_ROOT = bytes([0] * 32)  # all zeros for deposits",
+      "line_numbers": "line 1",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "staking_liquid_staking",
+        "execution_layer"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "constants",
+        "genesis",
+        "placeholder"
+      ],
+      "patterns": [
+        "trusted-config"
+      ],
+      "taint_source": "internal"
+    }
+    ,
+    {
+      "id": "GEN-FP-014",
+      "title": "Insufficient CID Validation in is_cid_v0 Function",
+      "finding_id": "799c60da-046d-443e-936e-7ed901f92f7d",
+      "severity_claimed_by_scan": "MEDIUM",
+      "bug_category": "Security",
+      "gap_category": "Logic/Correctness",
+      "technical_gap": "Heuristic type check only",
+      "false_positive_reasoning": "The `is_cid_v0` helper performs a lightweight heuristic (prefix 'Qm' and length 46) used solely to choose between `CIDv0` and `CIDv1` wrapper classes when reading CIDs returned by trusted contracts. It is not a security boundary. CIDs are then interpolated into provider URLs under a fixed `/ipfs/{cid}` path, which prevents path traversal. Invalid or malformed strings lead to bounded request failures (timeouts and limited retries) and raise `FetchError`, without enabling SSRF or privilege escalation. For content integrity, the codebase uses multiformats-based CID normalization and optional content validation (`IPFS_VALIDATE_CID`) for upload/publish flows; fetching untrusted CIDs does not rely on `is_cid_v0` for security decisions.",
+      "gap_explanation": "Scanner conflated a convenience classifier with security validation. The application treats CID classification as non-authoritative; network usage is path-scoped and guarded by timeouts/retries, and integrity checks exist where relevant. Weakness here does not create an external attacker-controlled exploit path.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/providers/ipfs/cid.py",
+      "code_snippet": "def is_cid_v0(cid: str) -> bool:\\n    return cid.startswith(\"Qm\") and len(cid) == 46",
+      "line_numbers": "lines 18–19",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "dev_infra_crypto",
+        "ipfs"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "cid",
+        "ipfs",
+        "validation"
+      ],
+      "patterns": [
+        "validation-heuristic"
+      ],
+      "taint_source": "internal"
+    }
+  ,
+    {
+      "id": "GEN-FP-015",
+      "title": "Missing Input Validation in CID Class Constructors",
+      "finding_id": "044de24e-f317-4ca1-8b0d-dffde7de8bb1",
+      "severity_claimed_by_scan": "MEDIUM",
+      "bug_category": "Security",
+      "gap_category": "Code Quality",
+      "technical_gap": "CID classes lack constructor validation; providers enforce multiformats-based validation and content-hash checks by default.",
+      "false_positive_reasoning": "By default the system normalizes/validates CIDs using multiformats on fetch/publish and verifies content hashes when IPFS_VALIDATE_CID is True (default). CID inputs come from trusted on-chain sources or internal flows; there is no attacker-controlled path to inject arbitrary absolute URLs. The only provider that could accept absolute URLs (Storacha) would require an attacker to control the CID value, which is not possible under the current architecture. Invalid CIDs lead to bounded request errors, not exploitation.",
+      "gap_explanation": "Scanner treated the lack of constructor validation as a security boundary failure. In practice, invariants are enforced at provider boundaries (decode/normalize and optional content validation), URLs are path-scoped, and CID sources are trusted. This is a defense-in-depth/code quality concern rather than an exploitable vulnerability.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "src/providers/ipfs/cid.py",
+      "code_snippet": "class CID(UserString):\\n    def __repr__(self):\\n        return f\\\"{self.__class__.__name__}({self.data})\\\"\\n\\n\\nclass CIDv0(CID):\\n    ...\\n\\n\\nclass CIDv1(CID):\\n    ...",
+      "line_numbers": "lines 4–14",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "Other",
+      "language": "Python",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "dev_infra_crypto",
+        "ipfs"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "cid",
+        "ipfs",
+        "validation",
+        "defense-in-depth"
+      ],
+      "patterns": [
+        "validation-at-boundaries"
+      ],
+      "taint_source": "internal"
     }
   ]
 }

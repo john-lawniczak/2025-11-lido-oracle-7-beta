@@ -1,0 +1,80 @@
+# ConfigAllFiles.yaml — Lido V3 Bug Bounty Competition (contracts-only)
+# Goal: include ONLY the Solidity contracts explicitly listed as in-scope for the competition,
+# regardless of their folder layout in lidofinance/core@v3.0.0-rc.4.
+# We match by filename anywhere in the repo to be robust to directory differences.
+
+include:
+  # Core protocol
+  - "**/Lido.sol"
+  - "**/wstETH.sol"
+  - "**/LidoLocator.sol"
+  - "**/Accounting.sol"
+  - "**/StakingRouter.sol"
+  - "**/WithdrawalQueueERC721.sol"
+  - "**/WithdrawalVault.sol"
+  - "**/Burner.sol"
+  - "**/PinnedBeaconProxy.sol"
+  - "**/Dashboard.sol"
+
+  # stVaults / VaultHub
+  - "**/VaultHub.sol"
+  - "**/VaultFactory.sol"
+  - "**/StakingVault.sol"
+  - "**/TriggerableWithdrawalsGateway.sol"
+  - "**/MinFirstAllocationStrategy.sol"   # allocation strategy (explicitly listed)
+
+  # Oracle contracts (on-chain parts)
+  - "**/AccountingOracle.sol"
+  - "**/ValidatorsExitBusOracle.sol"
+  - "**/HashConsensus.sol"                 # used by Accounting/ValidatorsExitBus
+  - "**/OracleReportSanityChecker.sol"
+  - "**/OracleDaemonConfig.sol"
+  - "**/LazyOracle.sol"
+
+  # Operator / safety / guarantees
+  - "**/OperatorGrid.sol"
+  - "**/PredepositGuarantee.sol"
+  - "**/ValidatorExitDelayVerifier.sol"
+  - "**/ValidatorConsolidationRequests.sol"
+  - "**/LidoExecutionLayerRewardsVault.sol"
+  - "**/EIP712StETH.sol"
+  - "**/DepositSecurityModule.sol"
+
+exclude:
+  # Tests, scripts, tooling, deployments
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/*.t.sol"
+  - "**/*.test.sol"
+  - "**/script/**"
+  - "**/scripts/**"
+  - "**/deploy/**"
+  - "**/deployment/**"
+  - "**/mocks/**"
+  - "**/mock/**"
+
+  # Non-contract assets & external deps
+  - "**/node_modules/**"
+  - "**/lib/**"
+  - "**/forge-std/**"
+  - "**/openzeppelin-contracts/**"
+  - "**/solmate/**"
+  - "**/foundry.toml"
+  - "**/package.json"
+  - "**/yarn.lock"
+  - "**/pnpm-lock.yaml"
+
+  # Docs & metadata
+  - "**/docs/**"
+  - "**/*.md"
+  - "**/*.json"          # ABIs/artifacts (not sources)
+  - "**/*.abi"
+  - "**/*.bin"
+
+  # Misc language / other repos content (if present)
+  - "**/*.py"
+  - "**/*.rs"
+  - "**/*.go"
+
+scan_mode: DEFAULT        # or LOW_NOISE if your scanner supports a stricter signal filter
+project_type: SOLIDITY    # 'SOLIDITY' for lidofinance/core contracts at v3.0.0-rc.4
