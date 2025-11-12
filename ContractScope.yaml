@@ -6,7 +6,7 @@
 include:
   # Core protocol
   - "**/Lido.sol"
-  - "**/wstETH.sol"
+  - "**/WstETH.sol"
   - "**/LidoLocator.sol"
   - "**/Accounting.sol"
   - "**/StakingRouter.sol"

@@ -60,7 +60,7 @@
       "line_numbers": "lines 30-39",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -99,9 +99,9 @@
       "code_path": "src/web3py/extensions/tx_utils.py",
       "code_snippet": "params: TxParams = {\\n    \"from\": account.address,\\n    \"maxFeePerGas\": Wei(\\n        latest_block[\"baseFeePerGas\"] * 2 + max_priority_fee\\n    ),\\n    \"maxPriorityFeePerGas\": max_priority_fee,\\n    \"nonce\": self.w3.eth.get_transaction_count(account.address),\\n}",
       "line_numbers": "lines 78–85",
-      "commit_hash": "",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -141,7 +141,7 @@
       "line_numbers": "lines 38–55",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -179,7 +179,7 @@
       "line_numbers": "multiple locations",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -219,7 +219,7 @@
       "line_numbers": "multiple locations",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -260,7 +260,7 @@
       "line_numbers": "multiple locations",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -283,7 +283,153 @@
         "trusted-config"
       ],
       "taint_source": "environment"
-    }
+  },
+  {
+    "id": "GEN-FP-019",
+    "title": "Reentrancy risk in VaultHub rebalance/withdraw flows (false positive)",
+    "finding_id": "f24c5358-a631-4033-80c6-feeaa535797d",
+    "severity_claimed_by_scan": "HIGH",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "External calls without reentrancy guard",
+    "false_positive_reasoning": "The scanner flags reentrancy risk, but VaultHub calls are to trusted, owner-controlled contracts (StakingVault and Lido). receive() is empty and does not trigger privileged paths. Critical functions are owner-protected and all external calls occur after owner checks.",
+    "gap_explanation": "Misinterpretation of reentrancy surface; there is no attacker-controlled entry point to privileged state.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.25/vaults/VaultHub.sol",
+    "code_snippet": "function _rebalance(address _vault, VaultRecord storage _record, uint256 _shares) internal {\n    uint256 valueToRebalance = _getPooledEthBySharesRoundUp(_shares);\n\n    _decreaseLiability(_vault, _record, _shares);\n    _withdraw(_vault, _record, address(this), valueToRebalance);\n    _rebalanceExternalEtherToInternal(valueToRebalance, _shares);\n\n    _updateBeaconChainDepositsPause(_vault, _record, _vaultConnection(_vault));\n\n    emit VaultRebalanced(_vault, _shares, valueToRebalance);\n}",
+    "line_numbers": "lines 1132-1152",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "oracle_networks",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5"
+  },
+  {
+    "id": "GEN-FP-020",
+    "title": "Confirmation Replay Attack via msg.data Manipulation in OperatorGrid",
+    "finding_id": "2ac61e52-cc94-433d-85e5-e675a25f903f",
+    "severity_claimed_by_scan": "HIGH",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "Stateful confirmations susceptible to replay",
+    "false_positive_reasoning": "The confirmation mechanism stores confirmations based on raw msg.data, enabling replay when vault state changes. This is a misclassification if no replay path exists due to state snapshot checks. If there is no snapshot guard, it remains risky.",
+    "gap_explanation": "Replay token uses dynamic contract state; needs state snapshot to prevent replay.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.25/vaults/OperatorGrid.sol",
+    "code_snippet": "function changeTier(address _vault, uint256 _requestedTierId, uint256 _requestedShareLimit) external returns (bool) {\n        // ...\n        // store the caller's confirmation; only proceed if the required number of confirmations is met.\n        if (!_collectAndCheckConfirmations(msg.data, vaultOwner, nodeOperator)) return false;\n        uint256 vaultLiabilityShares = vaultHub.liabilityShares(_vault);\n        // verification of liability shares snapshot should occur here\n        // ...\n    }",
+    "line_numbers": "lines 430-460",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "oracle_networks",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5"
+  },
+  {
+    "id": "GEN-FP-021",
+    "title": "Unbounded loop DoS risk in OracleReportSanityChecker historical data lookup",
+    "finding_id": "effab6e9-5b6c-4c4d-a586-c6a6e96dc707",
+    "severity_claimed_by_scan": "HIGH",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "Unbounded iteration over history",
+    "false_positive_reasoning": "The loops in _sumNegativeRebasesNotOlderThan and _exitedValidatorsAtTimestamp traverse reportData backwards without a bound, but in practice the data is looked back over a bounded window; if not, DoS may occur. This FP acknowledges potential DoS in pathological histories but assumes bounded lookback and monotonic timestamps.",
+    "gap_explanation": "Potential DoS is mitigated by bounded lookback; if unbounded, replay and gas exhaustion could occur.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.9/sanity_checks/OracleReportSanityChecker.sol",
+    "code_snippet": "function _sumNegativeRebasesNotOlderThan(uint256 _timestamp) internal view returns (uint256) {\n    uint256 sum;\n    for (int256 index = int256(reportData.length) - 1; index >= 0; index--) {\n        if (reportData[uint256(index)].timestamp > SafeCast.toUint64(_timestamp)) {\n            sum += reportData[uint256(index)].negativeCLRebaseWei;\n        } else {\n            break;\n        }\n    }\n    return sum;\n}",
+    "line_numbers": "647-657",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "oracle_networks",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5"
+  }
+  ,
+  {
+    "id": "GEN-FP-024",
+    "title": "Quarantine state transition early release in LazyOracle",
+    "finding_id": "b2dca4c7-ad14-4fe3-8e44-7096d25729e7",
+    "severity_claimed_by_scan": "HIGH",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "Quarantine early release bypass",
+    "false_positive_reasoning": "The reported bypass relies on a shorter-than-expected quarantine period being released due to threshold, but actual behavior requires the quarantine to be released only when conditions; The patch path.",
+    "gap_explanation": "Edge-case in state machine; early release is not intended.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.25/vaults/LazyOracle.sol",
+    "code_snippet": "function _processTotalValue(address _vault) internal returns (uint256) {\n    // ...\n    if (quarantineActive && _reportedTotalValue <= quarantineThreshold) {\n        delete $.vaultQuarantines[_vault];\n        emit QuarantineReleased(_vault, 0);\n        return _reportedTotalValue;\n    }\n    // ...\n}",
+    "line_numbers": "553-567",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "oracle_networks",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5"
+  },
+  {
+    "id": "GEN-FP-025",
+    "title": "Unsafe quarantine expiration check uses report timestamp",
+    "finding_id": "b462b953-0a64-4ef9-a449-6a2aa00c2e92",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "Quarantine expiration uses report timestamp",
+    "false_positive_reasoning": "The scanner flags oracle-driven timestamp use; however the code path uses the on-chain startTimestamp and quarantinePeriod and block.timestamp; the described vulnerability relies on incorrect usage. This is a safety hardening suggestion rather than an immediate exploitable vulnerability.",
+    "gap_explanation": "Oracle-driven timestamp usage for real-time expiry; not a proven vulnerability due to existing on-chain time gating.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.25/vaults/LazyOracle.sol",
+    "code_snippet": "function _determineQuarantineState(...) internal view returns (QuarantineState) {\n    // ...\n    bool isQuarantineExpired = (block.timestamp - _quarantine.startTimestamp) >= _storage().quarantinePeriod;\n    // ...\n}",
+    "line_numbers": "601-606",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "oracle_networks",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5"
+  }
     ,
     {
       "id": "GEN-FP-006",
@@ -302,7 +448,7 @@
       "line_numbers": "lines 18–22",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -341,7 +487,7 @@
       "line_numbers": "lines 4–15",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -379,7 +525,7 @@
       "line_numbers": "lines 24–31",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -418,7 +564,7 @@
       "line_numbers": "lines 5–17",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -456,7 +602,7 @@
       "line_numbers": "lines 7–16",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -494,7 +640,7 @@
       "line_numbers": "lines 170–184",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -533,7 +679,7 @@
       "line_numbers": "lines 4–15",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -571,7 +717,7 @@
       "line_numbers": "line 1",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -610,7 +756,7 @@
       "line_numbers": "lines 18–19",
       "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
       "chain": "Other",
-      "language": "Python",
+      "language": "Other",
       "ecosystem": "Immunefi",
       "contest": "Lido Accounting Oracle v7 Competition",
       "project_profile_tags": [
@@ -672,7 +818,289 @@
         "validation-at-boundaries"
       ],
       "taint_source": "internal"
+    },
+    {
+      "id": "GEN-FP-018",
+      "title": "Reentrancy via connectToVaultHub in createVaultWithDashboard is not possible",
+      "finding_id": "e0f95501-2159-477e-ac5d-9a78ee34032c",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Payable call bypasses receive",
+      "false_positive_reasoning": "The alleged reentrancy relies on Dashboard.receive() being triggered when the factory calls dashboard.connectToVaultHub{value: msg.value}(). In Solidity, calling a payable function with value invokes that function directly, not the receive() handler. The called function (connectToVaultHub) only funds the vault, transfers vault ownership to VaultHub, and calls VaultHub.connectVault; it does not invoke attacker-controlled external code. Any privileged Dashboard methods require onlyRole(DEFAULT_ADMIN_ROLE), and during the sequence the msg.sender is the factory itself. There is no callback path for an attacker to execute admin-gated operations before the role is revoked.",
+      "gap_explanation": "Misunderstood payable/receive dispatch and role-gated authorization; assumed external callback into admin-only functions during a single transaction without a callable entry point.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "Contracts/contracts/0.8.25/vaults/VaultFactory.sol",
+      "code_snippet": "        // initialize Dashboard with the factory address as the default admin, grant optional roles and connect to VaultHub\\n        dashboard.initialize(address(this), _nodeOperatorManager, _nodeOperatorManager, _nodeOperatorFeeBP, _confirmExpiry);\\n\\n        dashboard.connectToVaultHub{value: msg.value}();\\n\\n        if (_roleAssignments.length > 0) dashboard.grantRoles(_roleAssignments);\\n\\n        dashboard.grantRole(dashboard.DEFAULT_ADMIN_ROLE(), _defaultAdmin);\\n        dashboard.revokeRole(dashboard.DEFAULT_ADMIN_ROLE(), address(this));\\n\\n        emit VaultCreated(address(vault));",
+      "line_numbers": "lines 99–109",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "EVM",
+      "language": "Solidity",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "staking_liquid_staking",
+        "execution_layer"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "reentrancy",
+        "access-control",
+        "payable-dispatch"
+      ],
+      "patterns": [
+        "auth-capability-upstream",
+        "language-model-mismatch"
+      ],
+      "guard_kind": "RUNTIME_INVARIANT",
+      "guard_symbol": "payable function dispatch (no receive())",
+      "taint_source": "rpc",
+      "num_hops": 0
+    },
+    {
+      "id": "GEN-FP-021",
+      "title": "Second opinion oracle zeroing does not bypass CL balance decrease check",
+      "finding_id": "2569e841-ddcf-4019-99ad-95c64d27d768",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Admin can zero oracle",
+      "false_positive_reasoning": "The scanner assumed that setting `secondOpinionOracle` to the zero address disables the second-opinion check and allows oversized negative CL rebases to be accepted. In reality `_checkCLBalanceDecrease` explicitly reverts when an over-limit negative CL rebase is detected and `secondOpinionOracle` is the zero address. The code therefore fails-safe (reverts) rather than accepting unsafe reports when the oracle is disabled.",
+      "gap_explanation": "Misread of control flow: disabling the oracle triggers a revert path on over-limit negative CL rebases, not an acceptance path. The safety check requires a successful second opinion to proceed when limits are exceeded.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "Contracts/contracts/0.8.9/sanity_checks/OracleReportSanityChecker.sol",
+      "code_snippet": "function setSecondOpinionOracleAndCLBalanceUpperMargin(ISecondOpinionOracle _secondOpinionOracle, uint256 _clBalanceOraclesErrorUpperBPLimit)\n    external\n    onlyRole(SECOND_OPINION_MANAGER_ROLE)\n{\n    LimitsList memory limitsList = _limits.unpack();\n    limitsList.clBalanceOraclesErrorUpperBPLimit = _clBalanceOraclesErrorUpperBPLimit;\n    _updateLimits(limitsList);\n    if (_secondOpinionOracle != secondOpinionOracle) {\n        secondOpinionOracle = ISecondOpinionOracle(_secondOpinionOracle);\n        emit SecondOpinionOracleChanged(_secondOpinionOracle);\n    }",
+      "line_numbers": "lines 372–386",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "EVM",
+      "language": "Solidity",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "staking_liquid_staking"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "oracle",
+        "second-opinion",
+        "safety-check"
+      ],
+      "patterns": [
+        "trusted-peer-scope"
+      ],
+      "taint_source": "internal"
+    },
+    {
+      "id": "GEN-FP-022",
+      "title": "Unsafe downcasting in LazyOracle quarantine storage (false positive)",
+      "finding_id": "a98e0491-0cc9-44c6-8e4d-e60023f78b5a",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Unchecked downcast to uint128/uint64",
+      "false_positive_reasoning": "The scanner flagged silent truncation on downcasts in `_startNewQuarantine` and when updating `totalValueRemainder`. While downcasting without explicit checks is generally risky, reported total values are bounded earlier (see MAX_SANE_TOTAL_VALUE) and quarantined amounts derive from reported values constrained by protocol limits. Exploitation requires feeding numeric values beyond protocol sanity checks which are unlikely in practice. Recommend SafeCast adoption as defensive hardening.",
+      "gap_explanation": "Static pattern matched downcasts without accounting for upstream guards and protocol-level sanity constraints that limit reported values. This is a code-quality hardening suggestion rather than an immediate exploitable vulnerability.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "Contracts/contracts/0.8.25/vaults/LazyOracle.sol",
+      "code_snippet": "function _startNewQuarantine(\\n        Quarantine storage _quarantine,\\n        uint256 _amountToQuarantine,\\n        uint256 _currentTimestamp\\n    ) internal {\\n        _quarantine.pendingTotalValueIncrease = uint128(_amountToQuarantine);\\n        _quarantine.startTimestamp = uint64(_currentTimestamp);\\n        _quarantine.totalValueRemainder = 0;\\n    }",
+      "line_numbers": "lines 605–613",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "EVM",
+      "language": "Solidity",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "staking_liquid_staking",
+        "oracle_networks"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "integer-downcast",
+        "quarantine",
+        "defense-in-depth"
+      ],
+      "patterns": [
+        "validation-at-boundaries"
+      ],
+      "taint_source": "internal"
+    },
+    {
+      "id": "GEN-FP-023",
+      "title": "Unsafe downcasting in LazyOracle.updateReportData is not exploitable under sanity guards",
+      "finding_id": "e18b4074-4fba-40d4-96eb-6232ade7a678",
+      "severity_claimed_by_scan": "HIGH",
+      "bug_category": "Security",
+      "gap_category": "Security",
+      "technical_gap": "Unchecked downcast to uint64/uint48",
+      "false_positive_reasoning": "The scanner flagged the downcasts in `updateReportData` for potential silent truncation. However, the function is restricted to calls from the AccountingOracle (enforced via `msg.sender` check) which supplies bounded inputs derived from on-chain sources. Protocol invariants constrain refSlot and timestamp ranges. While SafeCast would be a defensive improvement, this report is a low-risk false positive.",
+      "gap_explanation": "Static matching of downcasts omitted caller trust assumptions and existing protocol bounds; treat as a code-quality suggestion.",
+      "scope_status": "IN_SCOPE",
+      "date_added": "2025-11-12",
+      "code_path": "Contracts/contracts/0.8.25/vaults/LazyOracle.sol",
+      "code_snippet": "function updateReportData(\\n        uint256 _vaultsDataTimestamp,\\n        uint256 _vaultsDataRefSlot,\\n        bytes32 _vaultsDataTreeRoot,\\n        string memory _vaultsDataReportCid\\n    ) external override(ILazyOracle) {\\n        if (msg.sender != LIDO_LOCATOR.accountingOracle()) revert NotAuthorized();\\n\\n        Storage storage $ = _storage();\\n        $.vaultsDataTimestamp = uint64(_vaultsDataTimestamp);\\n        $.vaultsDataRefSlot = uint48(_vaultsDataRefSlot);\\n        $.vaultsDataTreeRoot = _vaultsDataTreeRoot;\\n        $.vaultsDataReportCid = _vaultsDataReportCid;\\n    }",
+      "line_numbers": "lines 300–313",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+      "chain": "EVM",
+      "language": "Solidity",
+      "ecosystem": "Immunefi",
+      "contest": "Lido Accounting Oracle v7 Competition",
+      "project_profile_tags": [
+        "oracle_networks",
+        "dev_infra_crypto"
+      ],
+      "fixable_by_rule": false,
+      "custom_rule_matched": false,
+      "auditor": "JohnLaw",
+      "llm_model": "GPT-5",
+      "tags": [
+        "integer-downcast",
+        "trusted-caller"
+      ],
+      "patterns": [
+        "trusted-peer-scope",
+        "validation-at-boundaries"
+      ],
+      "taint_source": "internal"
     }
+  ,
+  {
+    "id": "GEN-FP-026",
+    "title": "Excess ETH handling in VaultFactory create-flow",
+    "finding_id": "19015fe6-a498-438a-96cb-d504cf05583e",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Security",
+    "gap_category": "Logic/Correctness",
+    "technical_gap": "Misread gas/value flow: ETH is forwarded to StakingVault via Dashboard, not to VaultHub",
+    "false_positive_reasoning": "ETH sent to createVaultWithDashboard is forwarded to the StakingVault via Dashboard.connectToVaultHub (which calls _stakingVault().fund{value: msg.value}()), not to VaultHub. VaultHub.connectVault is non-payable and only checks the vault’s balance being ≥ CONNECT_DEPOSIT; it does not receive or retain msg.value. Any ‘excess’ ETH becomes part of the vault’s balance, increasing capacity, and can be withdrawn via Dashboard.withdraw (role-gated WITHDRAW_ROLE under DEFAULT_ADMIN_ROLE). Therefore no ETH is permanently locked in VaultHub.",
+    "gap_explanation": "The report assumed msg.value was sent to VaultHub and became unrecoverable. In reality the value funds the vault and remains governed by Dashboard permissions. Optional UX could enforce exactly 1 ETH, but there is no security issue.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.25/vaults/VaultFactory.sol",
+    "code_snippet": "dashboard.connectToVaultHub{value: msg.value}();",
+    "line_numbers": "lines 102-102",
+      "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "staking_liquid_staking",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": [
+      "security",
+      "ether",
+      "refund",
+      "vault",
+      "factory"
+    ],
+    "patterns": [
+      "excess-eth",
+      "refund-path",
+      "vault-flow"
+    ],
+    "taint_source": "internal"
+  }
+  ,
+  {
+    "id": "GEN-FP-027",
+    "title": "Reentrancy false positive in PredepositGuarantee.withdrawNodeOperatorBalance",
+    "finding_id": "4c2f697e-1d37-46c4-a0e6-32ac6aa4fa08",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "External ETH transfer without explicit reentrancy guard flagged by heuristic",
+    "false_positive_reasoning": "False Positive - The function follows the Checks-Effects-Interactions (CEI) pattern: it decreases the accounting balance before performing the external ETH transfer. The simplified sequence is `balance.total -= uint128(_amount); (bool success, ) = _recipient.call{value: _amount}(\"\"); if (!success) revert WithdrawalFailed();`. Because the accounting reduction happens prior to the external call and the function does not perform any subsequent state writes that depend on pre-call values, a reentrant recipient cannot increase its effective withdrawable amount or corrupt accounting. The only thing a malicious recipient can do is revert, which reverts the whole transaction and restores the deducted balance. No exploit path to extract additional funds was found.",
+    "gap_explanation": "Automated heuristics flagged any external call without a reentrancy guard. Here CEI is correctly applied and there are no post-interaction state updates that an attacker could exploit. A reentrant callback cannot observe a stale higher balance because balance was already decremented. Adding a nonReentrant guard is optional defensive hardening but not required for correctness in this case.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.25/vaults/predeposit_guarantee/PredepositGuarantee.sol",
+    "code_snippet": "balance.total -= uint128(_amount);\n(bool success, ) = _recipient.call{value: _amount}(\"\");\nif (!success) revert WithdrawalFailed();",
+    "line_numbers": "N/A",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "staking_liquid_staking",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": [
+      "reentrancy",
+      "checks-effects-interactions",
+      "predeposit-guarantee",
+      "withdrawal",
+      "false_positive"
+    ],
+    "patterns": [
+      "reentrancy-heuristic",
+      "cei"
+    ],
+    "taint_source": "internal"
+  },
+  {
+    "id": "GEN-FP-028",
+    "title": "preservesEthBalance assert in WithdrawalVault flagged as DoS (false positive)",
+    "finding_id": "d91d657a-0a28-41ed-95b0-6bfe7aba5769",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "Invariant assert on ETH balance flagged as DoS risk",
+    "false_positive_reasoning": "False Positive - The `preservesEthBalance` modifier encodes an invariant that the function must not net-retain ETH after accounting for `msg.value`. Unexpected ETH arrival during a protected call requires an attacker-controlled in-tx transfer (e.g., via a reentrant callback or selfdestruct from code executed during the same transaction). The reported `addWithdrawalRequests` path contains no attacker-controlled external callback that could inject ETH before the trailing `assert`. Therefore the assertion holds in practice and does not present a viable DoS vector.",
+    "gap_explanation": "Rule-based scanners flag post-call balance assertions as potential DoS when they see ETH comparisons. The scanner assumed unsolicited in-tx ETH injection is possible; but without a demonstrated attacker-controlled callback into the vault during the protected execution, the scenario is theoretical. Using `assert` for this invariant is acceptable; converting to `require` is optional operational hardening.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.9/WithdrawalVault.sol",
+    "code_snippet": "modifier preservesEthBalance() {\n    uint256 balanceBeforeCall = address(this).balance - msg.value;\n    _;\n    assert(address(this).balance == balanceBeforeCall);\n}",
+    "line_numbers": "N/A",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "execution_layer",
+      "staking_liquid_staking",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": [
+      "dos",
+      "assert",
+      "withdrawal-vault",
+      "eip-7002"
+    ],
+    "patterns": [
+      "balance-invariant",
+      "assert-used"
+    ],
+    "taint_source": "internal"
+  }
   ]
 }
 

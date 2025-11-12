@@ -173,3 +173,102 @@
 - For Solidity: limit to `core@v3.0.0-rc.4` contracts that map to Hoodi addresses in the form.
 - For off-chain: limit to `lido-oracle@7.0.0-beta.3` and subpaths that **feed Accounting Oracle security** (e.g., consensus/HashConsensus, report builders, auth, IPC/RPC used by Accounting Oracle). Exclude ancillary utilities not affecting oracle integrity.
 
+
+## Addendum — Contract-Focused Targeting (Hoodi testnet addresses map to these names)
+
+**Exact Contracts to Prioritize (map to Immunefi “choose asset” list):**
+- Core accounting/routers: `Accounting.sol`, `StakingRouter.sol`, `Lido.sol`, `LidoLocator.sol`, `AccountingOracle.sol`
+- Vault system: `VaultHub.sol`, `VaultFactory.sol`, `StakingVault.sol`, `TriggerableWithdrawalsGateway.sol`, `WithdrawalVault.sol`, `WithdrawalQueueERC721.sol`, `Dashboard.sol`
+- Oracle & consensus: `LazyOracle.sol`, `HashConsensus.sol` (Accounting), `HashConsensus.sol` (ValidatorsExitBus), `OracleReportSanityChecker.sol`, `OracleDaemonConfig.sol`, `ValidatorsExitBusOracle.sol`
+- Operator & governance safety: `OperatorGrid.sol`, `PredepositGuarantee.sol`, `ValidatorExitDelayVerifier.sol`, `ValidatorConsolidationRequests.sol`, `PinnedBeaconProxy.sol`
+- Reward/aux: `Burner.sol`, `LidoExecutionLayerRewardsVault.sol`, `EIP712StETH.sol`, `wstETH.sol` (if present in this tag)
+
+> Use the **Hoodi docs** to copy exact addresses for the Immunefi form. Keep source tag pinned to `core@v3.0.0-rc.4`.
+
+---
+
+## Privilege & Lifecycle Matrix (fill this per contract before writing reports)
+
+| Contract | Proxy? | Init function | Pausable? (role) | Upgradeable? (role) | Critical roles | Emergency actions |
+|---|---|---|---|---|---|---|
+| VaultHub | PinnedBeaconProxy | `initialize(...)` | Yes/No | Yes/No | e.g., `VAULTHUB_ADMIN`, `PAUSE_ROLE` | e.g., pause vaults, set params |
+| StakingVault | Beacon/Clone? | `initialize(...)` | Yes/No | Factory upgrade path | `VAULT_ADMIN`, `WITHDRAWAL_ROLE` | halt deposits, rebind oracle |
+| StakingRouter | … | … | … | … | … | … |
+| Accounting | … | … | … | … | … | … |
+| LazyOracle | … | … | … | … | … | … |
+| HashConsensus (Accounting) | … | … | … | … | … | … |
+| WithdrawalQueueERC721 | … | … | … | … | … | … |
+| PredepositGuarantee | … | … | … | … | … | … |
+
+*Rationale:* lets you quickly apply the **1h pause** vs **5/9d upgrade window** cap and reason about feasible attack duration.
+
+---
+
+## Component Invariants to Assert (quick checklist)
+
+**VaultHub / StakingVaults**
+- **Collateralization**: `vaultAssets ≥ mintedShares*price - fees`; mint/burn cannot break solvency.
+- **Mint Limits**: respects **3% TVL cap** & **50k per NO**; no bypass via cloning/init or cross-vault accounting.
+- **TWG/EIP-7002**: triggerable withdrawals cannot strand funds; exit flows conserved across `WithdrawalVault`/`Queue`.
+- **Factory/Proxy**: init-locks enforced; no re-init or param drift via storage collisions.
+
+**Accounting / Oracle Path**
+- **HashConsensus**: quorum/epochs monotonic; no vote replays across domains; report hash binds to chainId/block.
+- **LazyOracle**: per-vault updates isolate; no cross-vault poisoning; late reports can’t overwrite finalized state.
+- **SanityChecker**: bounds actually gate state transitions; precision/rounding can’t leak value.
+
+**Lido Core**
+- **StakingRouter**: routes cannot mint/burn outside constraints; admin updates snapshot correctly for fee paths.
+- **EIP712StETH / wstETH**: signatures domain separation correct; wrap/unwrap preserves supply invariant.
+
+**Safety Modules**
+- **PredepositGuarantee**: BLS precommit matches deposited validators; no key substitution; timing/nonce uniqueness.
+- **ValidatorExitDelayVerifier / Consolidation**: bounds enforceable; cannot grief exits or accelerate against policy.
+
+---
+
+## High-Signal Bug Themes (contract-specific probes)
+
+- **Access control drift**: role checks on privileged ops (mint caps, vault params, oracle bindings) missing or mis-scoped.
+- **Init/upgrade traps**: `initialize()` callable again via proxy miswire; storage collision between impl & proxy; delegatecall misuse.
+- **Rounding leakage**: multi-asset/accounting math that lets attacker mint > value or redeem < owed (check all `*_Math` libs).
+- **Cross-vault bleed**: any path where one vault’s accounting or oracle inputs can affect another vault’s solvency.
+- **Oracle finality gap**: `HashConsensus` acceptance without adequate epoch anchoring → stale/forged report accepted.
+- **EIP-7002 edge**: triggerable withdrawals that over-release/under-lock, especially during partial exits or quota boundaries.
+- **Reentrancy**: callbacks in withdraw/mint/claim that allow state reuse; check ERC721 withdrawals & external token hooks.
+- **Permit/EIP712**: replay across chains or wrong domain separator → unauthorized mint/burn/transfer.
+
+---
+
+## Foundry/Hardhat Harness Hints (PoC discipline)
+
+- **Chain config**: local fork mimicking Hoodi (chainId **560048**) or mainnet-fork with test deployments.
+- **Tags**: import contracts from `core@v3.0.0-rc.4`; for oracle-linked tests, pin to the same tag; avoid external web calls.
+- **PoC format**: 
+  - Arrange: deploy minimal set (Locator → Hub/Factory → Vault → Router).
+  - Act: execute attack sequence (transactions, reordered blocks if needed).
+  - Assert: balance deltas, invariant break (`assertApproxEqAbs` tolerance documented), or role takeover.
+
+---
+
+## Impact & Window Calculator (drop-in notes)
+
+- Apply **Phase-1 caps**: `min(reportableLoss, 0.03*TVL, 50k/NO ceilings)` when relevant.
+- **Window**: If `Pausable`, cap to **1h** notional; else **5d (Crit)** / **9d (H/M)**.
+- **Severity floor**: Medium ≥ **$50k**, High ≥ **$250k**, Critical ≥ **$2M user** or **$1M non-user** affected.
+
+---
+
+## Report Metadata You Must Include (to avoid duplicate/invalid)
+
+- **Contract name + function(s)**, **Hoodi address**, **source path** in `core@v3.0.0-rc.4`.
+- **Exploit tx order** and **preconditions/permissions** (EOA vs role).
+- **Runnable PoC** (commands + expected output).
+- **Pause/upgrade** note → justify window cap.
+- **Known issues cross-check** (public log) → show it’s not a documented accepted risk.
+
+---
+
+## Non-contract Note (for your queue)
+
+- Off-chain item like **OpsGenie TLS verify**: **do not submit to competition** (no on-chain impact). Consider the **regular BBP** only if you can tie it to **Accounting Oracle** integrity or secrets and that repo is explicitly in scope. Otherwise keep as an internal hardening PR, not a bounty submission.
