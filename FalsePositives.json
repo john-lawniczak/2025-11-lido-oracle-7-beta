@@ -402,6 +402,38 @@
     "tags": ["upgrade","initialization","proxy","security"],
     "patterns": ["trusted-peer-scope","auth-capability-upstream"],
     "taint_source": "internal"
+  },
+  {
+    "id": "GEN-FP-035",
+    "title": "Missing Access Control on recoverERC20 in LidoExecutionLayerRewardsVault.sol (0.8.9)",
+    "finding_id": "ac73e3d7-ddd2-4e39-afe8-f93b9575756b", 
+    "severity_claimed_by_scan": "HIGH",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "Lack of access control on recovery function",
+    "false_positive_reasoning": "The function is designed to allow recovery of stray ERC20 tokens to TREASURY; while permissionless, the destination is fixed and controlled, so this does not enable theft or misappropriation. The timing advantage is minimal as it only moves tokens to treasury.",
+    "gap_explanation": "Threat model mismatch; token recoveries are restricted to treasury by design; no attacker-driven redirection.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.9/vaults/LidoExecutionLayerRewardsVault.sol",
+    "code_snippet": "function recoverERC20(address _token, uint256 _amount) external {\n\" +\n+        \"    require(_amount > 0, \\\"ZERO_RECOVERY_AMOUNT\\\");\\n\\n    emit ERC20Recovered(msg.sender, _token, _amount);\\n\\n    IERC20(_token).safeTransfer(TREASURY, _amount);\\n}\ ", 
+    "line_numbers": "L103-L107",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "execution_layer",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": ["security","treasury","recover","erc20"],
+    "patterns": ["trusted-peer-scope"],
+    "taint_source": "internal"
   }
 ,
   {
