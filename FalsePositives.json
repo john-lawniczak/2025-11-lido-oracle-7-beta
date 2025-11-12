@@ -370,6 +370,137 @@
     "custom_rule_matched": false,
     "auditor": "JohnLaw",
     "llm_model": "GPT-5"
+  },
+  {
+    "id": "GEN-FP-034",
+    "title": "Missing Access Control on initialize() in WithdrawalVault.sol (0.8.9)",
+    "finding_id": "fbb52d48-a938-4702-a7fc-e276ad05c522",
+    "severity_claimed_by_scan": "HIGH",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "Lack of access control on initialization",
+    "false_positive_reasoning": "The initialize() function in WithdrawalVault.sol (0.8.9) is a monotonic, idempotent version-bump (0 -> 2) and does not perform privileged actions or state changes beyond versioning. Front-running merely preempts the legitimate init call and does not brick safety guarantees or grant privileges. No funds are moved and no privileged access is set during initialization.",
+    "gap_explanation": "Policy/threat-model mismatch; the function is a controlled upgrade step, not a persistent privilege escalation.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.9/WithdrawalVault.sol",
+    "code_snippet": "function initialize() external {\n    // Initializations for v0 --> v2\n    _checkContractVersion(0);\n    _initializeContractVersionTo(2);\n}",
+    "line_numbers": "lines 75-82",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "execution_layer",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": ["upgrade","initialization","proxy","security"],
+    "patterns": ["trusted-peer-scope","auth-capability-upstream"],
+    "taint_source": "internal"
+  }
+,
+  {
+    "id": "GEN-FP-032",
+    "title": "Tier Limit Check race condition in changeTier (OperatorGrid)",
+    "finding_id": "79161b2a-c431-48a4-8b0a-844b3ef7f033",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Logic/Correctness",
+    "gap_category": "Logic/Correctness",
+    "technical_gap": "Race between confirmations and execution",
+    "false_positive_reasoning": "The liability read is performed at execution against live state; no stale snapshot is used. The check uses current `vaultLiabilityShares` and will revert if minting occurred since confirmations. Therefore no exploit path under current flow.",
+    "gap_explanation": "No real race under single transaction atomicity; the data read reflects post-confirmation state.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.25/vaults/OperatorGrid.sol",
+    "code_snippet": "uint256 vaultLiabilityShares = vaultHub.liabilityShares(_vault);\n\n// check if tier limit is exceeded\nif (requestedTier.liabilityShares + vaultLiabilityShares > requestedTier.shareLimit) revert TierLimitExceeded();",
+    "line_numbers": "lines 461-464",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "oracle_networks",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": ["race","tier","confirmations","operator"],
+    "patterns": ["trusted-peer-scope","auth-capability-upstream"],
+    "taint_source": "internal"
+  }
+  ,
+  {
+    "id": "GEN-FP-033",
+    "title": "Missing Access Control on finalizeUpgrade_v2 in WithdrawalVault.sol (0.8.9)",
+    "finding_id": "9130e21a-bfec-4daf-8dc4-90c38583e32a",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "Lack of access control on upgrade finalization",
+    "false_positive_reasoning": "The finalizeUpgrade_v2() function performs a non-sensitive, idempotent upgrade flag update and is guarded by a version check. It is executed as part of the upgrade flow and not intended to grant or grant ongoing privileges; front-running in a single transaction cannot bypass the one-time upgrade gating.",
+    "gap_explanation": "Policy/threat-model mismatch; the function is a controlled upgrade step, not a persistent privilege escalation.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.9/WithdrawalVault.sol",
+    "code_snippet": "function finalizeUpgrade_v2() external {\n    // Finalization for v1 --> v2\n    _checkContractVersion(1);\n    _updateContractVersion(2);\n}",
+    "line_numbers": "lines 80-84",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "execution_layer",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": ["upgrade","admin","proxy","security"],
+    "patterns": ["trusted-peer-scope","auth-capability-upstream"],
+    "taint_source": "internal"
+  }
+  ,
+  {
+    "id": "GEN-FP-031",
+    "title": "Role assignment validation missing in createVaultWithDashboard (VaultFactory)",
+    "finding_id": "960ed18a-14b5-4c03-9ac3-e28731e22395",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Security",
+    "gap_category": "Logic/Correctness",
+    "technical_gap": "Missing validation of _roleAssignments against DEFAULT_ADMIN_ROLE subtree",
+    "false_positive_reasoning": "The bootstrap flow grants roles on a brand-new Dashboard within a single transaction. This does not create a cross-vault escalation path; it is configuration for the fresh Dashboard and the admin is handed off in the same transaction.",
+    "gap_explanation": "Policy drift; not a real exploit path under the current threat model.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.25/vaults/VaultFactory.sol",
+    "code_snippet": "if (_roleAssignments.length > 0) dashboard.grantRoles(_roleAssignments);",
+    "line_numbers": "lines 102-104",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "staking_liquid_staking",
+      "execution_layer"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": ["bootstrap","role-assignment","admin"],
+    "patterns": ["trusted-peer-scope","auth-capability-upstream"],
+    "taint_source": "internal"
   }
   ,
   {
@@ -429,7 +560,7 @@
     "custom_rule_matched": false,
     "auditor": "JohnLaw",
     "llm_model": "GPT-5"
-  }
+    }
     ,
     {
       "id": "GEN-FP-006",
@@ -1101,6 +1232,89 @@
     ],
     "taint_source": "internal"
   }
+  ,
+  {
+    "id": "GEN-FP-029",
+    "title": "Fee exemption timing in unguaranteedDepositToBeaconChain flagged as exploitable",
+    "finding_id": "e1e0d54b-a8ca-4285-8348-cce6a7875eca",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Security",
+    "gap_category": "Logic/Correctness",
+    "technical_gap": "Fee exemption applied before deposits are finalized",
+    "false_positive_reasoning": "False Positive - The fee exemption (`_addFeeExemption(totalAmount)`) is applied in the same transaction that withdraws funds and performs the beacon chain deposits. If any deposit reverts, the entire transaction reverts and no state change (including the fee exemption) persists. There is no durable accounting inconsistency created by an internal revert; the worst outcome is a reverted transaction and wasted gas. Therefore, absent an externalized partial-success path that commits exemption before deposits, the reported exploit is not possible.",
+    "gap_explanation": "The scanner assumes that fee exemption can be committed separate from the deposit side-effects. In this implementation the withdrawal, beacon deposits (loop of depositContract.deposit{value: ...} calls), and `_addFeeExemption` occur within a single transaction and are atomic. A failure in the deposit loop reverts the whole transaction, preventing the exemption from being applied for funds that were not actually deposited. Optional UX hardening (moving `_addFeeExemption` after deposits) is valid but not required for correctness or safety.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.25/vaults/dashboard/Dashboard.sol",
+    "code_snippet": "_addFeeExemption(totalAmount);\n...\nfor (uint256 i = 0; i < _deposits.length; i++) {\n    deposit = _deposits[i];\n    depositContract.deposit{value: deposit.amount}(...);\n}",
+    "line_numbers": "lines 490-510",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "execution_layer",
+      "staking_liquid_staking",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": [
+      "fee",
+      "timing",
+      "deposit",
+      "false_positive"
+    ],
+    "patterns": [
+      "precommit-exemption",
+      "atomicity-misread"
+    ],
+    "taint_source": "internal"
+  }
+  ,
+  {
+    "id": "GEN-FP-030",
+    "title": "Fee exemption timing in unguaranteedDepositToBeaconChain (false positive)",
+    "finding_id": "ef47b2b1-6bb3-4b32-8b4a-a5a777630d6a",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Security",
+    "gap_category": "Logic/Correctness",
+    "technical_gap": "Fee exemption applied before deposits in same transaction flagged as potential mismatch",
+    "false_positive_reasoning": "False Positive - `unguaranteedDepositToBeaconChain` executes withdrawal, fee exemption addition, and beacon deposit calls within a single transaction. If any deposit call reverts, the entire transaction reverts and none of the earlier state updates (including the fee exemption) persist. Therefore, there is no path where the exemption remains while deposits fail within the same transaction. The cited in-code comment refers to cross-transaction operational races (disconnects vs later deposit arrival), not an intra-transaction partial-commit issue.",
+    "gap_explanation": "Automated rules assumed non-atomic behavior. In the EVM, failures in the deposit loop bubble up and revert the whole transaction, undoing `_addFeeExemption(totalAmount)` if any deposit fails. Moving the exemption after the loop can be done as UX hardening, but it is not required to prevent the alleged security issue.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-12",
+    "code_path": "Contracts/contracts/0.8.25/vaults/dashboard/Dashboard.sol",
+    "code_snippet": "_addFeeExemption(totalAmount);\n\n        bytes memory withdrawalCredentials = bytes.concat(stakingVault_.withdrawalCredentials());\n\n        IStakingVault.Deposit calldata deposit;\n        for (uint256 i = 0; i < _deposits.length; i++) {\n            deposit = _deposits[i];\n            depositContract.deposit{value: deposit.amount}(\n                deposit.pubkey,\n                withdrawalCredentials,\n                deposit.signature,\n                deposit.depositDataRoot\n            );\n        }",
+    "line_numbers": "lines 490-510",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "execution_layer",
+      "staking_liquid_staking",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": [
+      "fee",
+      "deposit",
+      "timing",
+      "false_positive"
+    ],
+    "patterns": [
+      "atomicity-misread",
+      "precommit-exemption"
+    ],
+    "taint_source": "internal"
   ]
 }
 
