@@ -416,7 +416,7 @@
     "scope_status": "IN_SCOPE",
     "date_added": "2025-11-12",
     "code_path": "Contracts/contracts/0.8.9/vaults/LidoExecutionLayerRewardsVault.sol",
-    "code_snippet": "function recoverERC20(address _token, uint256 _amount) external {\n\" +\n+        \"    require(_amount > 0, \\\"ZERO_RECOVERY_AMOUNT\\\");\\n\\n    emit ERC20Recovered(msg.sender, _token, _amount);\\n\\n    IERC20(_token).safeTransfer(TREASURY, _amount);\\n}\ ", 
+    "code_snippet": "function recoverERC20(address _token, uint256 _amount) external {\\n    require(_amount > 0, \\\"ZERO_RECOVERY_AMOUNT\\\");\\n\\n    emit ERC20Recovered(msg.sender, _token, _amount);\\n\\n    IERC20(_token).safeTransfer(TREASURY, _amount);\\n}", 
     "line_numbers": "L103-L107",
     "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
     "chain": "EVM",
@@ -1347,6 +1347,249 @@
       "precommit-exemption"
     ],
     "taint_source": "internal"
+  },
+  {
+    "id": "GEN-FP-036",
+    "title": "Missing Access Control on recoverERC721 in LidoExecutionLayerRewardsVault.sol (0.8.9)",
+    "finding_id": "cda0ab18-1e50-4320-b73d-87af28e0afc5",
+    "severity_claimed_by_scan": "HIGH",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "Permissionless sweep-to-treasury pattern with immutable destination; timing-only effect.",
+    "false_positive_reasoning": "The function is intentionally permissionless to sweep stray NFTs to the immutable TREASURY address. Callers cannot redirect funds or extract value; they can only accelerate the transfer to TREASURY. Tests explicitly validate that 'anyone' can call the function and that the NFT ends up at TREASURY.",
+    "gap_explanation": "Threat-model misinterpretation: permissionless recovery is by design and destination-fixed. No exploit path exists to misappropriate assets or change state in an unsafe way; only the timing of a transfer to TREASURY is affected.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-19",
+    "code_path": "Contracts/contracts/0.8.9/LidoExecutionLayerRewardsVault.sol",
+    "code_snippet": "function recoverERC721(address _token, uint256 _tokenId) external {\\n    emit ERC721Recovered(msg.sender, _token, _tokenId);\\n\\n    IERC721(_token).transferFrom(address(this), TREASURY, _tokenId);\\n}",
+    "line_numbers": "lines 118–122",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "execution_layer",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": [
+      "security",
+      "treasury",
+      "recover",
+      "erc721"
+    ],
+    "patterns": [
+      "trusted-peer-scope"
+    ],
+    "taint_source": "internal"
+  },
+  {
+    "id": "GEN-FP-037",
+    "title": "Missing Approval Check in recoverERC721 Could Cause Transaction Revert (false positive)",
+    "finding_id": "221cf657-2916-4cec-bcf3-085e20814915",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Logic/Correctness",
+    "gap_category": "Logic/Correctness",
+    "technical_gap": "Owner-initiated ERC721 transferFrom does not require prior approval under OZ ERC721; the vault is the owner when recovering.",
+    "false_positive_reasoning": "The vault calls transferFrom with from=address(this) while owning the token, so approval is not required. Tests using OpenZeppelin v4.4 ERC721 confirm successful transfers. Using transferFrom (vs safeTransferFrom) also avoids requiring TREASURY to implement ERC721Receiver, which is acceptable given the fixed, known recipient.",
+    "gap_explanation": "Misunderstanding of ERC721 permission model: the owner (vault) can transfer without approval, therefore the function will not revert under standard implementations.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-19",
+    "code_path": "Contracts/contracts/0.8.9/LidoExecutionLayerRewardsVault.sol",
+    "code_snippet": "IERC721(_token).transferFrom(address(this), TREASURY, _tokenId);",
+    "line_numbers": "line 121",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "execution_layer",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": [
+      "erc721",
+      "transferFrom",
+      "owner",
+      "approval",
+      "false_positive"
+    ],
+    "patterns": [
+      "language-model-mismatch",
+      "erc721-ownership-transfer"
+    ],
+    "taint_source": "internal"
+  },
+  {
+    "id": "GEN-FP-038",
+    "title": "Division by zero when postInternalShares equals zero in Accounting.sol",
+    "finding_id": "1dc37e69-63bf-42cc-b725-cb2ff84381d8",
+    "severity_claimed_by_scan": "HIGH",
+    "bug_category": "Reliability/Resilience",
+    "gap_category": "Reliability/Resilience",
+    "technical_gap": "Division by zero occurs before explicit sanity check, causing earlier revert with less descriptive error",
+    "false_positive_reasoning": "The division `postExternalShares * update.postInternalEther / update.postInternalShares` at line 216 can theoretically cause a division by zero if postInternalShares is zero. However, this occurs within `_simulateOracleReport` which is a view function called before any state changes in `handleOracleReport`. If postInternalShares is zero, the transaction reverts with a panic at the division site. The explicit check `if (_update.postInternalShares == 0) revert InternalSharesCantBeZero();` at line 407 in `_sanityChecks` would catch this immediately after, but the earlier revert already prevents any state corruption or fund loss. Both paths result in a transaction revert with no state changes committed. This is a code quality/error message clarity issue, not a security vulnerability.",
+    "gap_explanation": "Scanner correctly identified a potential division by zero but did not recognize that the early revert in a view function (before state changes) has the same net security effect as the later explicit check. Moving the check earlier (as suggested) would improve error messaging but does not fix an exploitable vulnerability.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-19",
+    "code_path": "Contracts/contracts/0.8.9/Accounting.sol",
+    "code_snippet": "update.postInternalShares = postInternalSharesBeforeFees + update.sharesToMintAsFees + _pre.badDebtToInternalize;\nuint256 postExternalShares = _pre.externalShares - _pre.badDebtToInternalize;\n\nupdate.postTotalShares = update.postInternalShares + postExternalShares;\nupdate.postTotalPooledEther = update.postInternalEther\n    + postExternalShares * update.postInternalEther / update.postInternalShares;",
+    "line_numbers": "lines 211-216",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "oracle_networks",
+      "staking_liquid_staking",
+      "dev_infra_crypto"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "Claude-Sonnet-4.5",
+    "tags": [
+      "division-by-zero",
+      "sanity-check",
+      "error-handling",
+      "oracle"
+    ],
+    "patterns": [
+      "early-revert-no-state-change",
+      "view-function-safety"
+    ],
+    "taint_source": "internal"
+  },
+  {
+    "id": "GEN-FP-039",
+    "title": "Potential overflow in external ether calculation multiplication in Lido.sol (0.4.24)",
+    "finding_id": "99d68f7b-581d-488e-8e81-b79464bc7670",
+    "severity_claimed_by_scan": "HIGH",
+    "bug_category": "Code Quality",
+    "gap_category": "Code Quality",
+    "technical_gap": "Multiplication without SafeMath in Solidity 0.4.24, but operands are bounded by design",
+    "false_positive_reasoning": "The calculation `(externalShares * _internalEther) / internalShares` at line 1062 is performed in Solidity 0.4.24 without SafeMath protection. However, both `externalShares` and `totalShares` are stored as uint128 values (packed in storage), retrieved via `getLowAndHighUint128()`. The multiplication of two uint128 values cannot overflow uint256: max(uint128) * max(uint128) = (2^128-1)^2 < 2^256. While `_internalEther` is computed as uint256, its constituent components (buffered ether, CL balance, transient ether) are also uint128-bounded in the protocol design. In practice, ETH supply constraints and the storage packing design ensure the product fits within uint256. The codebase uses SafeMath extensively elsewhere, so adding it here would be stylistically consistent, but the lack of SafeMath does not create an exploitable overflow under realistic/protocol-enforced value ranges.",
+    "gap_explanation": "Scanner flagged missing SafeMath in 0.4.24 code without considering the strict value bounds imposed by storage packing (uint128) and protocol invariants. This is a defensive coding suggestion rather than a security vulnerability given the design constraints.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-19",
+    "code_path": "Contracts/contracts/0.4.24/Lido.sol",
+    "code_snippet": "function _getExternalEther(uint256 _internalEther) internal view returns (uint256) {\n    (uint256 totalShares, uint256 externalShares) = _getTotalAndExternalShares();\n    uint256 internalShares = totalShares - externalShares;\n    return (externalShares * _internalEther) / internalShares;\n}",
+    "line_numbers": "lines 1059-1063",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "staking_liquid_staking",
+      "execution_layer"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "Claude-Sonnet-4.5",
+    "tags": [
+      "overflow",
+      "safemath",
+      "solidity-0.4.24",
+      "uint128",
+      "storage-packing"
+    ],
+    "patterns": [
+      "bounded-operands",
+      "storage-constraints"
+    ],
+    "taint_source": "internal"
+  },
+  {
+    "id": "GEN-FP-040",
+    "title": "Missing validation for external shares exceeding total shares in Lido.sol (0.4.24)",
+    "finding_id": "c08d5d7e-8983-46f0-bbe1-13dfd4e236f3",
+    "severity_claimed_by_scan": "HIGH",
+    "bug_category": "Logic/Correctness",
+    "gap_category": "Logic/Correctness",
+    "technical_gap": "Missing explicit invariant assertion after state mutations, but no unprivileged path to violate invariant",
+    "false_positive_reasoning": "The report claims that external shares could exceed total shares, leading to underflow in `internalShares = totalShares - externalShares` and broken accounting. However, all functions that modify external shares are strictly permissioned (require _auth(_vaultHub()) or _auth(_accounting())) and maintain the invariant by design: `mintExternalShares` increases both by same amount (and checks `_getMaxMintableExternalShares()`), `burnExternalShares` decreases both, `rebalanceExternalEtherToInternal` decreases external only, `internalizeExternalBadDebt` decreases external only. The `_getMaxMintableExternalShares` function returns 0 when the ratio limit is reached, blocking further minting. There is no unprivileged attack path to push externalShares above totalShares. The 'stone in the elevator' design keeps internalShares > 0. Adding post-mutation assertions would be good defensive practice for invariant checking, but their absence is not an exploitable vulnerability given the controlled access and correct implementation of all mutation functions.",
+    "gap_explanation": "Scanner flagged the silent return of 0 in `_getMaxMintableExternalShares` when the limit is exceeded and suggested that the system could enter an invalid state. In reality, the guard successfully prevents invalid minting, and all privileged functions maintain the invariant. Adding explicit `require(externalShares <= totalShares)` checks after mutations would improve invariant enforcement but does not close an attacker-controlled exploit path.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-19",
+    "code_path": "Contracts/contracts/0.4.24/Lido.sol",
+    "code_snippet": "function _getMaxMintableExternalShares() internal view returns (uint256) {\n    uint256 maxRatioBP = _getMaxExternalRatioBP();\n    if (maxRatioBP == 0) return 0;\n    if (maxRatioBP == TOTAL_BASIS_POINTS) return uint256(-1);\n\n    (uint256 totalShares, uint256 externalShares) = _getTotalAndExternalShares();\n\n    if (totalShares * maxRatioBP <= externalShares * TOTAL_BASIS_POINTS) return 0;\n\n    return (totalShares * maxRatioBP - externalShares * TOTAL_BASIS_POINTS) / (TOTAL_BASIS_POINTS - maxRatioBP);\n}",
+    "line_numbers": "lines 1099-1111",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "staking_liquid_staking",
+      "execution_layer"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "Claude-Sonnet-4.5",
+    "tags": [
+      "invariant",
+      "shares",
+      "access-control",
+      "ratio-limit"
+    ],
+    "patterns": [
+      "privileged-only-mutation",
+      "invariant-by-design"
+    ],
+    "taint_source": "internal"
+  },
+  {
+    "id": "GEN-FP-041",
+    "title": "Vault disconnect can be permanently blocked by bad debt socialization (false positive)",
+    "finding_id": "a60696dd-883c-4cce-96f6-8f04309d1c6b",
+    "severity_claimed_by_scan": "MEDIUM",
+    "bug_category": "Security",
+    "gap_category": "Security",
+    "technical_gap": "Privileged BAD_DEBT_MASTER_ROLE may socialize debt to connected vaults; disconnect abort is by design.",
+    "false_positive_reasoning": "Disconnect completion intentionally requires zero slashing reserve and zero liabilityShares at report time. Bad debt socialization can increase liabilityShares after disconnect initiation; the code then aborts disconnect. This is a governance/role decision, not an unintended vulnerability.",
+    "gap_explanation": "Design explicitly allows socialization to pending-disconnect vaults and aborts disconnect on nonzero liabilities; behavior is documented in code and guarded by BAD_DEBT_MASTER_ROLE with same node operator constraint.",
+    "scope_status": "IN_SCOPE",
+    "date_added": "2025-11-19",
+    "code_path": "Contracts/contracts/0.8.25/vaults/VaultHub.sol",
+    "code_snippet": "if (connection.disconnectInitiatedTs <= _reportTimestamp) {\\n    if (_reportSlashingReserve == 0 && record.liabilityShares == 0) {\\n        IStakingVault(_vault).transferOwnership(connection.owner);\\n        _deleteVault(_vault, connection);\\n        emit VaultDisconnectCompleted(_vault);\\n        return;\\n    } else {\\n        connection.disconnectInitiatedTs = DISCONNECT_NOT_INITIATED;\\n        emit VaultDisconnectAborted(_vault, _reportSlashingReserve);\\n    }\\n}",
+    "line_numbers": "lines 542–554",
+    "commit_hash": "d6c09a16736b2c132343a4e349c8f27179c73e6e",
+    "chain": "EVM",
+    "language": "Solidity",
+    "ecosystem": "Immunefi",
+    "contest": "Lido Accounting Oracle v7 Competition",
+    "project_profile_tags": [
+      "oracle_networks",
+      "staking_liquid_staking"
+    ],
+    "fixable_by_rule": false,
+    "custom_rule_matched": false,
+    "auditor": "JohnLaw",
+    "llm_model": "GPT-5",
+    "tags": [
+      "bad-debt",
+      "disconnect",
+      "governance",
+      "roles"
+    ],
+    "patterns": [
+      "trusted-peer-scope",
+      "auth-capability-upstream"
+    ],
+    "taint_source": "internal"
+  }
   ]
 }
 
